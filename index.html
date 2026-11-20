@@ -5,13 +5,59 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Bottle Royale 3D</title>
 <style>
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%;overflow:hidden;background:#0b0f14;font-family:system-ui;
-    touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-  canvas{display:block;width:100%;height:100%}
-  #rotateHint{position:fixed;inset:0;background:#0b0f14;color:#fff;display:none;
-    align-items:center;justify-content:center;flex-direction:column;gap:16px;font-size:18px;z-index:999}
-  @media (orientation:portrait){#rotateHint{display:flex}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#0b0f14;color:#fff;
+    font-family:-apple-system,system-ui,sans-serif;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;touch-action:none}
+  .screen{position:fixed;inset:0;display:none}
+  .screen.active{display:block}
+
+  /* ============ LOBBY ============ */
+  #lobbyScreen{background:linear-gradient(180deg,#1a2332 0%,#0b0f14 100%);overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .lobby-header{padding:14px 20px 6px;display:flex;justify-content:space-between;align-items:center}
+  .lobby-title{font-size:20px;font-weight:800;letter-spacing:1px}
+  .level-badge{background:linear-gradient(135deg,#ff9a3c,#ff6b35);padding:5px 14px;
+    border-radius:20px;font-size:12px;font-weight:700}
+  .preview-box{width:100%;height:340px;position:relative}
+  #lobbyPreview{display:block;width:100%;height:100%}
+  .profile-section{padding:0 20px}
+  .name-row{display:flex;gap:8px;margin-bottom:12px}
+  .name-input{flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+    border-radius:10px;padding:12px 14px;color:#fff;font-size:15px;font-weight:600;outline:none}
+  .name-input:focus{border-color:#4a9eff}
+  .name-save{background:#4a9eff;border:none;color:#fff;padding:0 20px;
+    border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
+  .customize-section{background:rgba(255,255,255,.05);border-radius:16px;
+    padding:16px;margin:16px 20px;border:1px solid rgba(255,255,255,.08)}
+  .customize-title{font-size:12px;font-weight:700;text-transform:uppercase;
+    letter-spacing:1px;opacity:.55;margin-bottom:12px}
+  .color-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .color-row:last-child{margin-bottom:0}
+  .color-label{width:52px;font-size:13px;font-weight:600;opacity:.8}
+  .color-swatches{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+  .swatch{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:transform .1s}
+  .swatch:active{transform:scale(.9)}
+  .swatch.active{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.3)}
+  .start-btn{display:block;margin:20px auto 30px;padding:18px 70px;
+    background:linear-gradient(135deg,#ff6b35,#e53e3e);border:none;border-radius:50px;
+    color:#fff;font-size:18px;font-weight:800;letter-spacing:1px;
+    box-shadow:0 8px 24px rgba(229,62,62,.4);cursor:pointer;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+
+  /* ============ MATCHING ============ */
+  #matchingScreen{background:radial-gradient(circle at center,#1a2332,#0b0f14);
+    display:none;align-items:center;justify-content:center;flex-direction:column;gap:22px}
+  #matchingScreen.active{display:flex}
+  .spinner{width:60px;height:60px;border:4px solid rgba(255,255,255,.1);
+    border-top-color:#ff6b35;border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .match-text{font-size:18px;font-weight:700;letter-spacing:1px}
+  .match-sub{font-size:13px;opacity:.55}
+  .match-count{font-size:38px;font-weight:800;color:#ff9a3c}
+
+  /* ============ MATCH ============ */
+  #matchScreen{background:#000}
+  #gameCanvas{display:block;width:100%;height:100%}
   #hud{position:fixed;inset:0;pointer-events:none;z-index:10}
   #topBar{position:absolute;top:8px;left:8px;right:8px;display:flex;
     justify-content:space-between;align-items:center;color:#fff;font-size:13px;
@@ -24,13 +70,11 @@
   #crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(255,255,255,.85)}
   #crosshair::before{top:9px;left:0;width:20px;height:2px}
   #crosshair::after{top:0;left:9px;width:2px;height:20px}
-  #crosshair .dot{position:absolute;top:8px;left:8px;width:4px;height:4px;
-    border-radius:50%;background:#ff4444}
+  #crosshair .dot{position:absolute;top:8px;left:8px;width:4px;height:4px;border-radius:50%;background:#ff4444}
   .btn{position:fixed;border-radius:50%;background:rgba(255,255,255,.15);
     border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;
     justify-content:center;color:#fff;font-weight:700;font-size:11px;
-    pointer-events:auto;z-index:20;backdrop-filter:blur(4px);
-    transition:transform .08s,background .08s}
+    pointer-events:auto;z-index:20;backdrop-filter:blur(4px);transition:transform .08s,background .08s}
   .btn:active{background:rgba(255,255,255,.35);transform:scale(.93)}
   #fireBtn{right:22px;bottom:22px;width:90px;height:90px;
     background:rgba(229,62,62,.35);border-color:rgba(229,62,62,.9);font-size:15px}
@@ -42,32 +86,87 @@
     border:2px solid rgba(255,255,255,.25);z-index:20;pointer-events:none}
   #joyKnob{position:absolute;left:40px;top:40px;width:50px;height:50px;
     border-radius:50%;background:rgba(255,255,255,.4);border:2px solid rgba(255,255,255,.6)}
-  #deathScreen{position:fixed;inset:0;background:rgba(0,0,0,.8);color:#fff;
+  .endOverlay{position:fixed;inset:0;background:rgba(0,0,0,.82);color:#fff;
     display:none;align-items:center;justify-content:center;flex-direction:column;
-    gap:16px;z-index:100;font-size:24px}
-  #deathScreen button{padding:12px 32px;background:#e53e3e;border:none;
-    color:#fff;font-size:16px;border-radius:8px;font-weight:700}
+    gap:16px;z-index:100}
+  .endOverlay.active{display:flex}
+  .endTitle{font-size:44px;font-weight:900;letter-spacing:2px}
+  .endTitle.win{color:#ffcc33;text-shadow:0 0 24px rgba(255,204,51,.6)}
+  .endTitle.lose{color:#e53e3e}
+  .endStat{font-size:15px;opacity:.8}
+  .endBtn{padding:14px 40px;background:#4a9eff;border:none;color:#fff;
+    font-size:16px;border-radius:12px;font-weight:700;margin-top:8px}
 </style>
 </head>
 <body>
-<div id="rotateHint"><div style="font-size:48px">📱↻</div><div>Rotate to landscape</div></div>
-<canvas id="c"></canvas>
-<div id="hud">
-  <div id="topBar">
-    <div><div>HP</div><div id="hpBar"><div id="hpFill"></div></div></div>
-    <div style="text-align:right">
-      <div>KILLS: <span id="kills">0</span></div>
-      <div>ALIVE: <span id="alive">46</span></div>
+
+<!-- ============ LOBBY ============ -->
+<div id="lobbyScreen" class="screen active">
+  <div class="lobby-header">
+    <div class="lobby-title">BOTTLE ROYALE</div>
+    <div class="level-badge" id="levelBadge">LVL 1</div>
+  </div>
+  <div class="preview-box"><canvas id="lobbyPreview"></canvas></div>
+  <div class="profile-section">
+    <div class="name-row">
+      <input class="name-input" id="nameInput" maxlength="14" placeholder="Player name"/>
+      <button class="name-save" id="nameSave">SAVE</button>
     </div>
   </div>
-  <div id="crosshair"><div class="dot"></div></div>
+  <div class="customize-section">
+    <div class="customize-title">Customize</div>
+    <div class="color-row">
+      <div class="color-label">Shirt</div>
+      <div class="color-swatches" id="shirtSwatches"></div>
+    </div>
+    <div class="color-row">
+      <div class="color-label">Pants</div>
+      <div class="color-swatches" id="pantsSwatches"></div>
+    </div>
+    <div class="color-row">
+      <div class="color-label">Shoes</div>
+      <div class="color-swatches" id="shoesSwatches"></div>
+    </div>
+  </div>
+  <button class="start-btn" id="startBtn">START</button>
 </div>
-<div class="btn" id="fireBtn">FIRE</div>
-<div class="btn" id="jumpBtn">JUMP</div>
-<div class="btn" id="crouchBtn">SIT</div>
-<div class="btn" id="proneBtn">PRONE</div>
-<div id="joyBase"><div id="joyKnob"></div></div>
-<div id="deathScreen"><div>💀 You died</div><button id="respawnBtn">Respawn</button></div>
+
+<!-- ============ MATCHING ============ -->
+<div id="matchingScreen" class="screen">
+  <div class="spinner"></div>
+  <div class="match-text">Matching Players...</div>
+  <div class="match-count" id="matchCount">1/46</div>
+  <div class="match-sub">Finding opponents nearby</div>
+</div>
+
+<!-- ============ MATCH ============ -->
+<div id="matchScreen" class="screen">
+  <canvas id="gameCanvas"></canvas>
+  <div id="hud">
+    <div id="topBar">
+      <div>
+        <div id="playerNameHud">Player</div>
+        <div id="hpBar"><div id="hpFill"></div></div>
+      </div>
+      <div style="text-align:right">
+        <div>KILLS: <span id="kills">0</span>/3</div>
+        <div>ALIVE: <span id="alive">46</span></div>
+      </div>
+    </div>
+    <div id="crosshair"><div class="dot"></div></div>
+  </div>
+  <div class="btn" id="fireBtn">FIRE</div>
+  <div class="btn" id="jumpBtn">JUMP</div>
+  <div class="btn" id="crouchBtn">SIT</div>
+  <div class="btn" id="proneBtn">PRONE</div>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+
+  <div class="endOverlay" id="endOverlay">
+    <div class="endTitle" id="endTitle">VICTORY</div>
+    <div class="endStat" id="endStat"></div>
+    <button class="endBtn" id="endBtn">Return to Lobby</button>
+  </div>
+</div>
 
 <script type="importmap">
 { "imports": {
@@ -84,23 +183,189 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 
-// ============ RENDERER ============
-const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+// ============================================================
+// STATE
+// ============================================================
+const SKIN = new THREE.Color(0xf2d0b3);
+const SHIRT_COLORS = ['#3a7dbd','#b83b3b','#2d8659','#c47a1e','#7038a0','#2a8a8a','#a83a7d','#e0d8c8'];
+const PANTS_COLORS = ['#2a2a2a','#1a3a5c','#3a3a3a','#5c3a1a','#2a4a3a','#4a2a4a'];
+const SHOES_COLORS = ['#111111','#5c2a1a','#ffffff','#c47a1e','#2a4a8a'];
+
+const state = {
+  screen: 'lobby',
+  profile: loadProfile(),
+  matchActive: false,
+  winTarget: 3,
+};
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem('br_profile');
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return { name: 'Player', xp: 0, shirt: SHIRT_COLORS[0], pants: PANTS_COLORS[0], shoes: SHOES_COLORS[0] };
+}
+function saveProfile() {
+  try { localStorage.setItem('br_profile', JSON.stringify(state.profile)); } catch(e) {}
+}
+function getLevel() { return Math.floor(state.profile.xp / 100) + 1; }
+
+// ============================================================
+// SCREEN MANAGER
+// ============================================================
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(name + 'Screen').classList.add('active');
+  state.screen = name;
+}
+
+// ============================================================
+// LOBBY — UI
+// ============================================================
+const nameInput = document.getElementById('nameInput');
+const levelBadge = document.getElementById('levelBadge');
+
+function buildSwatches(containerId, palette, key) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  palette.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'swatch' + (state.profile[key] === c ? ' active' : '');
+    d.style.background = c;
+    d.dataset.color = c;
+    d.addEventListener('click', () => {
+      state.profile[key] = c;
+      saveProfile();
+      el.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+      d.classList.add('active');
+      updateLobbyCharacter();
+    });
+    el.appendChild(d);
+  });
+}
+buildSwatches('shirtSwatches', SHIRT_COLORS, 'shirt');
+buildSwatches('pantsSwatches', PANTS_COLORS, 'pants');
+buildSwatches('shoesSwatches', SHOES_COLORS, 'shoes');
+
+nameInput.value = state.profile.name;
+levelBadge.textContent = 'LVL ' + getLevel();
+document.getElementById('nameSave').addEventListener('click', () => {
+  const v = nameInput.value.trim().slice(0, 14) || 'Player';
+  state.profile.name = v;
+  nameInput.value = v;
+  saveProfile();
+});
+
+// ============================================================
+// LOBBY — 3D PREVIEW
+// ============================================================
+const previewCanvas = document.getElementById('lobbyPreview');
+const previewRenderer = new THREE.WebGLRenderer({ canvas: previewCanvas, antialias: true, alpha: true });
+previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+const previewScene = new THREE.Scene();
+const previewCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 50);
+previewCamera.position.set(0, 1.4, 3.6);
+previewCamera.lookAt(0, 0.95, 0);
+
+previewScene.add(new THREE.HemisphereLight(0xc8e1ff, 0x334422, 1.0));
+const pSun = new THREE.DirectionalLight(0xfff0d4, 2.0);
+pSun.position.set(3, 5, 4);
+pSun.castShadow = true;
+pSun.shadow.mapSize.set(512, 512);
+previewScene.add(pSun);
+
+// Pedestal
+const ped = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.3, 1.5, 0.2, 32),
+  new THREE.MeshStandardMaterial({ color: 0x2a3a4a, roughness: 0.5, metalness: 0.4 })
+);
+ped.position.y = 0;
+ped.receiveShadow = true;
+previewScene.add(ped);
+
+// Character
+const charGroup = new THREE.Group();
+previewScene.add(charGroup);
+
+const headMeshP = new THREE.Mesh(new THREE.SphereGeometry(0.24, 20, 16),
+  new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.85 }));
+headMeshP.position.y = 1.72; headMeshP.castShadow = true;
+charGroup.add(headMeshP);
+
+const torsoMeshP = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.8, 0.32),
+  new THREE.MeshStandardMaterial({ color: state.profile.shirt, roughness: 0.9 }));
+torsoMeshP.position.y = 1.05; torsoMeshP.castShadow = true;
+charGroup.add(torsoMeshP);
+
+const armLMeshP = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.65, 0.16),
+  new THREE.MeshStandardMaterial({ color: state.profile.shirt, roughness: 0.9 }));
+armLMeshP.position.set(-0.36, 1.28, 0); armLMeshP.castShadow = true;
+charGroup.add(armLMeshP);
+
+const armRMeshP = armLMeshP.clone();
+armRMeshP.position.x = 0.36;
+armRMeshP.material = armLMeshP.material;
+charGroup.add(armRMeshP);
+
+const legLMeshP = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.72, 0.2),
+  new THREE.MeshStandardMaterial({ color: state.profile.pants, roughness: 0.95 }));
+legLMeshP.position.set(-0.15, 0.5, 0); legLMeshP.castShadow = true;
+charGroup.add(legLMeshP);
+
+const legRMeshP = legLMeshP.clone();
+legRMeshP.position.x = 0.15;
+legRMeshP.material = legLMeshP.material;
+charGroup.add(legRMeshP);
+
+const shoeLMeshP = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.32),
+  new THREE.MeshStandardMaterial({ color: state.profile.shoes, roughness: 0.7 }));
+shoeLMeshP.position.set(-0.15, 0.06, 0.04);
+charGroup.add(shoeLMeshP);
+
+const shoeRMeshP = shoeLMeshP.clone();
+shoeRMeshP.position.x = 0.15;
+shoeRMeshP.material = shoeLMeshP.material;
+charGroup.add(shoeRMeshP);
+
+function updateLobbyCharacter() {
+  torsoMeshP.material.color.set(state.profile.shirt);
+  armLMeshP.material.color.set(state.profile.shirt);
+  armRMeshP.material.color.set(state.profile.shirt);
+  legLMeshP.material.color.set(state.profile.pants);
+  legRMeshP.material.color.set(state.profile.pants);
+  shoeLMeshP.material.color.set(state.profile.shoes);
+  shoeRMeshP.material.color.set(state.profile.shoes);
+}
+
+function resizeLobby() {
+  const box = previewCanvas.parentElement;
+  const w = box.clientWidth, h = box.clientHeight;
+  previewRenderer.setSize(w, h, false);
+  previewCamera.aspect = w / h;
+  previewCamera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resizeLobby);
+setTimeout(resizeLobby, 30);
+
+// ============================================================
+// MATCH — RENDERER & SCENE
+// ============================================================
+const gameCanvas = document.getElementById('gameCanvas');
+const renderer = new THREE.WebGLRenderer({ canvas: gameCanvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
-// ============ SCENE ============
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9ec7e8);
 scene.fog = new THREE.Fog(0x9ec7e8, 70, 250);
-const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 500);
 
-// ============ LIGHTS ============
 scene.add(new THREE.HemisphereLight(0xc8e1ff, 0x556b3a, 0.75));
 const sun = new THREE.DirectionalLight(0xfff0d4, 2.0);
 sun.position.set(40, 60, 30);
@@ -110,207 +375,166 @@ Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, n
 sun.shadow.bias = -0.0005;
 scene.add(sun, sun.target);
 
-// ============ ENV MAP ============
 const pmrem = new THREE.PMREMGenerator(renderer);
 const envScene = new THREE.Scene();
 envScene.background = new THREE.Color(0x9ec7e8);
 scene.environment = pmrem.fromScene(envScene, 0.04).texture;
 
-// ============ GROUND ============
+// Ground
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(600, 600),
   new THREE.MeshStandardMaterial({ color: 0x5e7a44, roughness: 0.95 })
 );
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
 scene.add(ground);
 
 const road = new THREE.Mesh(
   new THREE.PlaneGeometry(12, 400),
   new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.85 })
 );
-road.rotation.x = -Math.PI / 2;
-road.position.y = 0.01;
-road.receiveShadow = true;
+road.rotation.x = -Math.PI / 2; road.position.y = 0.01; road.receiveShadow = true;
 scene.add(road);
 
-// ============ WATER ============
+// Water
 const water = new THREE.Mesh(
   new THREE.PlaneGeometry(80, 80),
   new THREE.MeshStandardMaterial({ color: 0x1e4d66, roughness: 0.1, metalness: 0.85, envMapIntensity: 1.3 })
 );
-water.rotation.x = -Math.PI / 2;
-water.position.set(60, 0.02, -60);
+water.rotation.x = -Math.PI / 2; water.position.set(60, 0.02, -60);
 scene.add(water);
 
-// ============ HOUSES ============
+// Houses
 function makeHouse(x, z, ry) {
   const g = new THREE.Group();
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0xe0d8c8, roughness: 0.9 });
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0x8a3f2e, roughness: 0.8 });
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 5, 7), wallMat);
-  wall.position.y = 2.5;
-  wall.castShadow = wall.receiveShadow = true;
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(7.5, 3.5, 4), roofMat);
-  roof.position.y = 6.75;
-  roof.rotation.y = Math.PI / 4;
-  roof.castShadow = true;
-  const door = new THREE.Mesh(
-    new THREE.BoxGeometry(1.4, 2.4, 0.1),
-    new THREE.MeshStandardMaterial({ color: 0x4a2f1a })
-  );
-  door.position.set(0, 1.2, 3.55);
-  g.add(wall, roof, door);
-  g.position.set(x, 0, z);
-  g.rotation.y = ry;
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 5, 7),
+    new THREE.MeshStandardMaterial({ color: 0xe0d8c8, roughness: 0.9 }));
+  wall.position.y = 2.5; wall.castShadow = wall.receiveShadow = true;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(7.5, 3.5, 4),
+    new THREE.MeshStandardMaterial({ color: 0x8a3f2e, roughness: 0.8 }));
+  roof.position.y = 6.75; roof.rotation.y = Math.PI / 4; roof.castShadow = true;
+  g.add(wall, roof);
+  g.position.set(x, 0, z); g.rotation.y = ry;
   scene.add(g);
 }
-makeHouse(-20, -25, 0.3);
-makeHouse(22, -50, -0.5);
-makeHouse(-40, 20, 0.8);
-makeHouse(50, 30, 1.2);
-makeHouse(-10, -80, 0);
+makeHouse(-20, -25, 0.3); makeHouse(22, -50, -0.5);
+makeHouse(-40, 20, 0.8); makeHouse(50, 30, 1.2); makeHouse(-10, -80, 0);
 
-// ============ TREES ============
+// Trees
 const TREE_COUNT = 140;
-const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.5, 6);
-trunkGeo.translate(0, 1.25, 0);
-const leafGeo = new THREE.ConeGeometry(1.8, 3.8, 7);
-leafGeo.translate(0, 4.2, 0);
-
+const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.5, 6); trunkGeo.translate(0, 1.25, 0);
+const leafGeo = new THREE.ConeGeometry(1.8, 3.8, 7); leafGeo.translate(0, 4.2, 0);
 const trunkMesh = new THREE.InstancedMesh(trunkGeo,
   new THREE.MeshStandardMaterial({ color: 0x5b3d2b, roughness: 0.95 }), TREE_COUNT);
 const leafMesh = new THREE.InstancedMesh(leafGeo,
   new THREE.MeshStandardMaterial({ color: 0x2e5c28, roughness: 0.9 }), TREE_COUNT);
 trunkMesh.castShadow = leafMesh.castShadow = true;
 trunkMesh.frustumCulled = leafMesh.frustumCulled = false;
-
-const treeM = new THREE.Matrix4();
-const treeQ = new THREE.Quaternion();
-const treeV = new THREE.Vector3();
-const treeS = new THREE.Vector3();
+const treeM = new THREE.Matrix4(), treeQ = new THREE.Quaternion(),
+      treeV = new THREE.Vector3(), treeS = new THREE.Vector3();
 for (let i = 0; i < TREE_COUNT; i++) {
-  const a = Math.random() * Math.PI * 2;
-  const r = 18 + Math.random() * 140;
+  const a = Math.random() * Math.PI * 2, r = 18 + Math.random() * 140;
   const s = 0.75 + Math.random() * 0.9;
   treeS.set(s, s, s);
   treeQ.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2);
   treeV.set(Math.cos(a) * r, 0, Math.sin(a) * r);
   treeM.compose(treeV, treeQ, treeS);
-  trunkMesh.setMatrixAt(i, treeM);
-  leafMesh.setMatrixAt(i, treeM);
+  trunkMesh.setMatrixAt(i, treeM); leafMesh.setMatrixAt(i, treeM);
 }
 scene.add(trunkMesh, leafMesh);
 
-// ============ CLOUDS ============
-const cloudCount = 40;
-const cloudGeo = new THREE.SphereGeometry(8, 8, 6);
-const cloudMat = new THREE.MeshStandardMaterial({
-  color: 0xffffff, roughness: 1, transparent: true, opacity: 0.85, depthWrite: false
-});
-const clouds = new THREE.InstancedMesh(cloudGeo, cloudMat, cloudCount);
+// Clouds
+const CLOUD_COUNT = 40;
+const clouds = new THREE.InstancedMesh(
+  new THREE.SphereGeometry(8, 8, 6),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.85, depthWrite: false }),
+  CLOUD_COUNT
+);
 clouds.frustumCulled = false;
-const cloudM = new THREE.Matrix4();
-const cloudV = new THREE.Vector3();
-const cloudS = new THREE.Vector3();
-const cloudQ = new THREE.Quaternion();
 const cloudData = [];
-for (let i = 0; i < cloudCount; i++) {
+for (let i = 0; i < CLOUD_COUNT; i++) {
   cloudData.push({
-    x: (Math.random() - 0.5) * 400,
-    y: 55 + Math.random() * 30,
+    x: (Math.random() - 0.5) * 400, y: 55 + Math.random() * 30,
     z: (Math.random() - 0.5) * 400,
-    sx: 2 + Math.random() * 3,
-    sy: 0.35 + Math.random() * 0.35,
-    sz: 1.5 + Math.random() * 2,
+    sx: 2 + Math.random() * 3, sy: 0.35 + Math.random() * 0.35, sz: 1.5 + Math.random() * 2,
     ph: Math.random() * Math.PI * 2
   });
 }
 scene.add(clouds);
+const cloudM = new THREE.Matrix4(), cloudV = new THREE.Vector3(),
+      cloudS = new THREE.Vector3(), cloudQ = new THREE.Quaternion();
 
-function updateClouds(t) {
-  for (let i = 0; i < cloudCount; i++) {
-    const c = cloudData[i];
-    cloudS.set(c.sx, c.sy, c.sz);
-    cloudV.set(c.x + Math.sin(t * 0.02 + c.ph) * 5, c.y, c.z);
-    cloudM.compose(cloudV, cloudQ, cloudS);
-    clouds.setMatrixAt(i, cloudM);
-  }
-  clouds.instanceMatrix.needsUpdate = true;
-}
-
-// ============ CHARACTER GEOMETRY ============
+// Characters (instanced)
 const CHAR_COUNT = 46;
 const headGeo = new THREE.SphereGeometry(0.22, 8, 6);
 const torsoGeo = new THREE.BoxGeometry(0.5, 0.75, 0.3);
 const armGeo = new THREE.BoxGeometry(0.14, 0.62, 0.14); armGeo.translate(0, -0.31, 0);
 const legGeo = new THREE.BoxGeometry(0.18, 0.7, 0.18); legGeo.translate(0, -0.35, 0);
 
-const matSkin = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
-const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-
-const headMesh = new THREE.InstancedMesh(headGeo, matSkin, CHAR_COUNT);
-const torsoMesh = new THREE.InstancedMesh(torsoGeo, matBody, CHAR_COUNT);
-const armLMesh = new THREE.InstancedMesh(armGeo, matBody, CHAR_COUNT);
-const armRMesh = new THREE.InstancedMesh(armGeo, matBody, CHAR_COUNT);
-const legLMesh = new THREE.InstancedMesh(legGeo, matBody, CHAR_COUNT);
-const legRMesh = new THREE.InstancedMesh(legGeo, matBody, CHAR_COUNT);
+const headMesh = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ roughness: 0.85 }), CHAR_COUNT);
+const torsoMesh = new THREE.InstancedMesh(torsoGeo, new THREE.MeshStandardMaterial({ roughness: 0.9 }), CHAR_COUNT);
+const armLMesh = new THREE.InstancedMesh(armGeo, new THREE.MeshStandardMaterial({ roughness: 0.9 }), CHAR_COUNT);
+const armRMesh = new THREE.InstancedMesh(armGeo, new THREE.MeshStandardMaterial({ roughness: 0.9 }), CHAR_COUNT);
+const legLMesh = new THREE.InstancedMesh(legGeo, new THREE.MeshStandardMaterial({ roughness: 0.95 }), CHAR_COUNT);
+const legRMesh = new THREE.InstancedMesh(legGeo, new THREE.MeshStandardMaterial({ roughness: 0.95 }), CHAR_COUNT);
 const charMeshes = [headMesh, torsoMesh, armLMesh, armRMesh, legLMesh, legRMesh];
-charMeshes.forEach(m => {
-  m.castShadow = true;
-  m.receiveShadow = true;
-  m.frustumCulled = false;
-  scene.add(m);
-});
+charMeshes.forEach(m => { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); });
 
-// Colors per instance
-const skinPal = [0xf2d0b3, 0xd4a373, 0x8b5a2b, 0xc98d5e];
-const clothPal = [0x3a7dbd, 0xb83b3b, 0x2d8659, 0xc47a1e, 0x7038a0, 0x2a8a8a, 0xa83a7d];
+const botPalette = SHIRT_COLORS.concat(PANTS_COLORS);
 for (let i = 0; i < CHAR_COUNT; i++) {
-  const skin = new THREE.Color(skinPal[i % skinPal.length]);
-  const cloth = new THREE.Color(clothPal[i % clothPal.length]);
-  const pants = cloth.clone().multiplyScalar(0.6);
-  headMesh.setColorAt(i, skin);
-  torsoMesh.setColorAt(i, cloth);
-  armLMesh.setColorAt(i, cloth);
-  armRMesh.setColorAt(i, cloth);
-  legLMesh.setColorAt(i, pants);
-  legRMesh.setColorAt(i, pants);
+  headMesh.setColorAt(i, SKIN);
+  torsoMesh.setColorAt(i, new THREE.Color(botPalette[i % botPalette.length]));
+  armLMesh.setColorAt(i, new THREE.Color(botPalette[i % botPalette.length]));
+  armRMesh.setColorAt(i, new THREE.Color(botPalette[i % botPalette.length]));
+  legLMesh.setColorAt(i, new THREE.Color(PANTS_COLORS[i % PANTS_COLORS.length]));
+  legRMesh.setColorAt(i, new THREE.Color(PANTS_COLORS[i % PANTS_COLORS.length]));
+}
+charMeshes.forEach(m => { if (m.instanceColor) m.instanceColor.needsUpdate = true; });
+
+function applyProfileToPlayer() {
+  const shirt = new THREE.Color(state.profile.shirt);
+  const pants = new THREE.Color(state.profile.pants);
+  headMesh.setColorAt(0, SKIN);
+  torsoMesh.setColorAt(0, shirt);
+  armLMesh.setColorAt(0, shirt);
+  armRMesh.setColorAt(0, shirt);
+  legLMesh.setColorAt(0, pants);
+  legRMesh.setColorAt(0, pants);
+  charMeshes.forEach(m => { if (m.instanceColor) m.instanceColor.needsUpdate = true; });
 }
 
-// ============ CHARACTER DATA ============
+// Characters state
 const characters = [];
-characters.push({
-  pos: new THREE.Vector3(0, 0, 8), yaw: 0, state: 'stand',
-  vy: 0, onGround: true, walkPhase: 0,
-  isPlayer: true, alive: true, hp: 100, kills: 0
-});
-for (let i = 1; i < CHAR_COUNT; i++) {
+function resetCharacters() {
+  characters.length = 0;
   characters.push({
-    pos: new THREE.Vector3((Math.random() - 0.5) * 160, 0, (Math.random() - 0.5) * 160),
-    yaw: Math.random() * Math.PI * 2, state: 'stand',
-    vy: 0, onGround: true, walkPhase: Math.random() * Math.PI * 2,
-    isPlayer: false, alive: true, hp: 100,
-    wanderTimer: Math.random() * 3, attackTimer: 1 + Math.random() * 2,
-    wanderDir: new THREE.Vector3()
+    pos: new THREE.Vector3(0, 0, 8), yaw: 0, state: 'stand',
+    vy: 0, onGround: true, walkPhase: 0,
+    isPlayer: true, alive: true, hp: 100, kills: 0
   });
+  for (let i = 1; i < CHAR_COUNT; i++) {
+    characters.push({
+      pos: new THREE.Vector3((Math.random() - 0.5) * 160, 0, (Math.random() - 0.5) * 160),
+      yaw: Math.random() * Math.PI * 2, state: 'stand',
+      vy: 0, onGround: true, walkPhase: Math.random() * Math.PI * 2,
+      isPlayer: false, alive: true, hp: 100,
+      wanderTimer: Math.random() * 3, attackTimer: 1 + Math.random() * 2,
+      wanderDir: new THREE.Vector3()
+    });
+  }
 }
+resetCharacters();
 const player = characters[0];
 
-// ============ INSTANCE MATRIX HELPERS ============
-const _m1 = new THREE.Matrix4();
-const _v1 = new THREE.Vector3();
-const _q1 = new THREE.Quaternion();
-const _s1 = new THREE.Vector3(1, 1, 1);
-const _e1 = new THREE.Euler();
-const _up = new THREE.Vector3(0, 1, 0);
-const _zeroM = new THREE.Matrix4().makeScale(0, 0, 0);
+// Instance matrix helpers
+const _m1 = new THREE.Matrix4(), _v1 = new THREE.Vector3(), _q1 = new THREE.Quaternion(),
+      _s1 = new THREE.Vector3(1, 1, 1), _e1 = new THREE.Euler(), _up = new THREE.Vector3(0, 1, 0),
+      _zeroM = new THREE.Matrix4().makeScale(0, 0, 0);
 
-function setInstance(mesh, idx, ch, localX, localY, localZ, limbRotX) {
-  const yScale = ch.state === 'prone' ? 0.3 : ch.state === 'crouch' ? 0.65 : 1.0;
-  _e1.set(limbRotX, ch.yaw, 0, 'YXZ');
+function setInst(mesh, idx, ch, lx, ly, lz, rotX) {
+  const yS = ch.state === 'prone' ? 0.3 : ch.state === 'crouch' ? 0.65 : 1.0;
+  _e1.set(rotX, ch.yaw, 0, 'YXZ');
   _q1.setFromEuler(_e1);
-  _v1.set(localX, localY * yScale, localZ);
+  _v1.set(lx, ly * yS, lz);
   _v1.applyAxisAngle(_up, ch.yaw);
   _v1.add(ch.pos);
   _m1.compose(_v1, _q1, _s1);
@@ -324,32 +548,30 @@ function updateCharacterInstances() {
       for (const m of charMeshes) m.setMatrixAt(i, _zeroM);
       continue;
     }
-    const swing = Math.sin(ch.walkPhase) * 0.6;
-    setInstance(headMesh, i, ch, 0, 1.65, 0, 0);
-    setInstance(torsoMesh, i, ch, 0, 1.0, 0, 0);
-    setInstance(armLMesh, i, ch, -0.32, 1.35, 0, -swing * 0.7);
-    setInstance(armRMesh, i, ch, 0.32, 1.35, 0, swing * 0.7);
-    setInstance(legLMesh, i, ch, -0.13, 0.72, 0, swing);
-    setInstance(legRMesh, i, ch, 0.13, 0.72, 0, -swing);
+    const sw = Math.sin(ch.walkPhase) * 0.6;
+    setInst(headMesh, i, ch, 0, 1.65, 0, 0);
+    setInst(torsoMesh, i, ch, 0, 1.0, 0, 0);
+    setInst(armLMesh, i, ch, -0.32, 1.35, 0, -sw * 0.7);
+    setInst(armRMesh, i, ch, 0.32, 1.35, 0, sw * 0.7);
+    setInst(legLMesh, i, ch, -0.13, 0.72, 0, sw);
+    setInst(legRMesh, i, ch, 0.13, 0.72, 0, -sw);
   }
   for (const m of charMeshes) m.instanceMatrix.needsUpdate = true;
 }
 
-// ============ BULLETS ============
-const bulletGeo = new THREE.SphereGeometry(0.1, 6, 4);
-const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffcc33 });
-const enemyBulletMat = new THREE.MeshBasicMaterial({ color: 0xff3333 });
+// Bullets
 const BULLET_POOL = 40;
 const bullets = [];
 for (let i = 0; i < BULLET_POOL * 2; i++) {
   const isEnemy = i >= BULLET_POOL;
-  const b = new THREE.Mesh(bulletGeo, isEnemy ? enemyBulletMat : bulletMat);
+  const b = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1, 6, 4),
+    new THREE.MeshBasicMaterial({ color: isEnemy ? 0xff3333 : 0xffcc33 })
+  );
   b.visible = false;
   b.userData = { vel: new THREE.Vector3(), life: 0, isEnemy };
-  scene.add(b);
-  bullets.push(b);
+  scene.add(b); bullets.push(b);
 }
-
 function spawnBullet(from, dir, isEnemy) {
   for (const b of bullets) {
     if (b.userData.isEnemy === !!isEnemy && !b.visible) {
@@ -361,77 +583,30 @@ function spawnBullet(from, dir, isEnemy) {
     }
   }
 }
+function clearBullets() { for (const b of bullets) b.visible = false; }
 
-function updateBullets(dt) {
-  for (const b of bullets) {
-    if (!b.visible) continue;
-    b.position.addScaledVector(b.userData.vel, dt);
-    b.userData.life -= dt;
-    if (b.userData.life <= 0) { b.visible = false; continue; }
-
-    if (b.userData.isEnemy) {
-      if (player.alive) {
-        const dx = b.position.x - player.pos.x;
-        const dy = b.position.y - (player.pos.y + 1.0);
-        const dz = b.position.z - player.pos.z;
-        if (dx * dx + dy * dy + dz * dz < 0.9) {
-          player.hp -= 4;
-          updateHPUI();
-          b.visible = false;
-          if (player.hp <= 0) {
-            player.alive = false;
-            document.getElementById('deathScreen').style.display = 'flex';
-          }
-        }
-      }
-    } else {
-      for (let i = 1; i < CHAR_COUNT; i++) {
-        const ch = characters[i];
-        if (!ch.alive) continue;
-        const dx = b.position.x - ch.pos.x;
-        const dy = b.position.y - (ch.pos.y + 1.0);
-        const dz = b.position.z - ch.pos.z;
-        if (dx * dx + dy * dy + dz * dz < 0.9) {
-          ch.hp -= 40;
-          b.visible = false;
-          if (ch.hp <= 0) {
-            ch.alive = false;
-            player.kills++;
-            updateKillsUI(); updateAliveUI();
-          }
-          break;
-        }
-      }
-    }
-  }
-}
-
-// ============ INPUT ============
-let moveX = 0, moveY = 0;
-let lookYaw = 0, lookPitch = 0.15;
-let joyId = null, joyStart = { x: 0, y: 0 };
-let lookId = null, lastLook = { x: 0, y: 0 };
+// Input
+let moveX = 0, moveY = 0, lookYaw = 0, lookPitch = 0.15;
+let joyId = null, joyStart = { x: 0, y: 0 }, lookId = null, lastLook = { x: 0, y: 0 };
 const joyKnob = document.getElementById('joyKnob');
 
-addEventListener('touchstart', e => {
+function handleTouchStart(e) {
+  if (state.screen !== 'match') return;
   for (const t of e.changedTouches) {
     if (t.target.closest('.btn')) continue;
     if (t.clientX < innerWidth * 0.45 && joyId === null) {
-      joyId = t.identifier;
-      joyStart = { x: t.clientX, y: t.clientY };
+      joyId = t.identifier; joyStart = { x: t.clientX, y: t.clientY };
     } else if (lookId === null) {
-      lookId = t.identifier;
-      lastLook = { x: t.clientX, y: t.clientY };
+      lookId = t.identifier; lastLook = { x: t.clientX, y: t.clientY };
     }
   }
-}, { passive: true });
-
-addEventListener('touchmove', e => {
+}
+function handleTouchMove(e) {
+  if (state.screen !== 'match') return;
   for (const t of e.changedTouches) {
     if (t.identifier === joyId) {
       const dx = t.clientX - joyStart.x, dy = t.clientY - joyStart.y;
-      const len = Math.min(55, Math.hypot(dx, dy));
-      const ang = Math.atan2(dy, dx);
+      const len = Math.min(55, Math.hypot(dx, dy)), ang = Math.atan2(dy, dx);
       joyKnob.style.left = (40 + Math.cos(ang) * len) + 'px';
       joyKnob.style.top = (40 + Math.sin(ang) * len) + 'px';
       moveX = Math.cos(ang) * (len / 55);
@@ -443,9 +618,8 @@ addEventListener('touchmove', e => {
       lastLook = { x: t.clientX, y: t.clientY };
     }
   }
-}, { passive: true });
-
-addEventListener('touchend', e => {
+}
+function handleTouchEnd(e) {
   for (const t of e.changedTouches) {
     if (t.identifier === joyId) {
       joyId = null; moveX = moveY = 0;
@@ -453,7 +627,10 @@ addEventListener('touchend', e => {
     }
     if (t.identifier === lookId) lookId = null;
   }
-}, { passive: true });
+}
+addEventListener('touchstart', handleTouchStart, { passive: true });
+addEventListener('touchmove', handleTouchMove, { passive: true });
+addEventListener('touchend', handleTouchEnd, { passive: true });
 
 const keys = {};
 addEventListener('keydown', e => keys[e.code] = true);
@@ -462,17 +639,17 @@ let mDown = false, mx = 0, my = 0;
 addEventListener('mousedown', e => { if (e.target.closest('.btn')) return; mDown = true; mx = e.clientX; my = e.clientY; });
 addEventListener('mouseup', () => mDown = false);
 addEventListener('mousemove', e => {
-  if (!mDown) return;
+  if (!mDown || state.screen !== 'match') return;
   lookYaw -= (e.clientX - mx) * 0.004;
   lookPitch += (e.clientY - my) * 0.004;
   lookPitch = Math.max(-0.5, Math.min(0.85, lookPitch));
   mx = e.clientX; my = e.clientY;
 });
 
-// ============ BUTTONS ============
+// Buttons
 let fireHeld = false, fireCooldown = 0;
 function fire() {
-  if (!player.alive || fireCooldown > 0) return;
+  if (!state.matchActive || !player.alive || fireCooldown > 0) return;
   fireCooldown = 0.15;
   const dir = new THREE.Vector3(
     -Math.sin(lookYaw) * Math.cos(lookPitch),
@@ -483,40 +660,27 @@ function fire() {
   spawnBullet(from, dir, false);
   player.yaw = lookYaw;
 }
-const fireBtn = document.getElementById('fireBtn');
-fireBtn.addEventListener('touchstart', e => { e.preventDefault(); fire(); fireHeld = true; }, { passive: false });
-fireBtn.addEventListener('touchend', e => { e.preventDefault(); fireHeld = false; }, { passive: false });
-fireBtn.addEventListener('mousedown', e => { e.preventDefault(); fire(); fireHeld = true; });
-fireBtn.addEventListener('mouseup', () => fireHeld = false);
-
-function doJump() {
-  if (!player.alive || !player.onGround) return;
-  player.vy = 6.5; player.onGround = false;
+function bindBtn(id, onDown, onUp) {
+  const b = document.getElementById(id);
+  b.addEventListener('touchstart', e => { e.preventDefault(); onDown(); }, { passive: false });
+  b.addEventListener('touchend', e => { e.preventDefault(); onUp && onUp(); }, { passive: false });
+  b.addEventListener('mousedown', e => { e.preventDefault(); onDown(); });
+  b.addEventListener('mouseup', () => onUp && onUp());
 }
-const jumpBtn = document.getElementById('jumpBtn');
-jumpBtn.addEventListener('touchstart', e => { e.preventDefault(); doJump(); }, { passive: false });
-jumpBtn.addEventListener('mousedown', e => { e.preventDefault(); doJump(); });
+bindBtn('fireBtn', () => { fire(); fireHeld = true; }, () => fireHeld = false);
+bindBtn('jumpBtn', () => { if (state.matchActive && player.alive && player.onGround) { player.vy = 6.5; player.onGround = false; } });
+bindBtn('crouchBtn', () => { if (state.matchActive && player.alive) player.state = player.state === 'crouch' ? 'stand' : 'crouch'; });
+bindBtn('proneBtn', () => { if (state.matchActive && player.alive) player.state = player.state === 'prone' ? 'stand' : 'prone'; });
 
-function doCrouch() {
-  if (!player.alive) return;
-  player.state = player.state === 'crouch' ? 'stand' : 'crouch';
-}
-const crouchBtn = document.getElementById('crouchBtn');
-crouchBtn.addEventListener('touchstart', e => { e.preventDefault(); doCrouch(); }, { passive: false });
-crouchBtn.addEventListener('mousedown', e => { e.preventDefault(); doCrouch(); });
-
-function doProne() {
-  if (!player.alive) return;
-  player.state = player.state === 'prone' ? 'stand' : 'prone';
-}
-const proneBtn = document.getElementById('proneBtn');
-proneBtn.addEventListener('touchstart', e => { e.preventDefault(); doProne(); }, { passive: false });
-proneBtn.addEventListener('mousedown', e => { e.preventDefault(); doProne(); });
-
-// ============ UI ============
+// UI
 const hpFill = document.getElementById('hpFill');
 const killsEl = document.getElementById('kills');
 const aliveEl = document.getElementById('alive');
+const playerNameHud = document.getElementById('playerNameHud');
+const endOverlay = document.getElementById('endOverlay');
+const endTitle = document.getElementById('endTitle');
+const endStat = document.getElementById('endStat');
+
 function updateHPUI() { hpFill.style.width = Math.max(0, player.hp) + '%'; }
 function updateKillsUI() { killsEl.textContent = player.kills; }
 function updateAliveUI() {
@@ -524,31 +688,22 @@ function updateAliveUI() {
   for (const c of characters) if (c.alive) n++;
   aliveEl.textContent = n;
 }
-document.getElementById('respawnBtn').addEventListener('click', () => {
-  player.alive = true; player.hp = 100;
-  player.pos.set(0, 0, 8); player.state = 'stand';
-  document.getElementById('deathScreen').style.display = 'none';
-  updateHPUI();
-});
 
-// ============ BOT AI ============
+// Bot AI
 function updateBots(dt) {
   for (let i = 1; i < CHAR_COUNT; i++) {
     const ch = characters[i];
     if (!ch.alive) continue;
-
     const dx = player.pos.x - ch.pos.x;
     const dz = player.pos.z - ch.pos.z;
     const distSq = dx * dx + dz * dz;
     const playerVisible = distSq < 35 * 35 && player.alive;
-
     if (playerVisible) {
       const targetYaw = Math.atan2(dx, dz);
       let dy = targetYaw - ch.yaw;
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
       ch.yaw += dy * Math.min(1, dt * 3);
-
       ch.attackTimer -= dt;
       if (ch.attackTimer <= 0) {
         ch.attackTimer = 1.5 + Math.random() * 1.5;
@@ -558,8 +713,7 @@ function updateBots(dt) {
         dir.y += (Math.random() - 0.5) * 0.05;
         dir.z += (Math.random() - 0.5) * 0.1;
         dir.normalize();
-        const from = ch.pos.clone().add(new THREE.Vector3(0, 1.5, 0));
-        spawnBullet(from, dir, true);
+        spawnBullet(ch.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), dir, true);
       }
       ch.walkPhase *= 0.9;
     } else {
@@ -580,7 +734,44 @@ function updateBots(dt) {
   }
 }
 
-// ============ CAMERA ============
+function updateBullets(dt) {
+  for (const b of bullets) {
+    if (!b.visible) continue;
+    b.position.addScaledVector(b.userData.vel, dt);
+    b.userData.life -= dt;
+    if (b.userData.life <= 0) { b.visible = false; continue; }
+    if (b.userData.isEnemy) {
+      if (player.alive) {
+        const dx = b.position.x - player.pos.x;
+        const dy = b.position.y - (player.pos.y + 1.0);
+        const dz = b.position.z - player.pos.z;
+        if (dx * dx + dy * dy + dz * dz < 0.9) {
+          player.hp -= 4; updateHPUI(); b.visible = false;
+          if (player.hp <= 0) { player.alive = false; endMatch(false); }
+        }
+      }
+    } else {
+      for (let i = 1; i < CHAR_COUNT; i++) {
+        const ch = characters[i];
+        if (!ch.alive) continue;
+        const dx = b.position.x - ch.pos.x;
+        const dy = b.position.y - (ch.pos.y + 1.0);
+        const dz = b.position.z - ch.pos.z;
+        if (dx * dx + dy * dy + dz * dz < 0.9) {
+          ch.hp -= 40; b.visible = false;
+          if (ch.hp <= 0) {
+            ch.alive = false;
+            player.kills++;
+            updateKillsUI(); updateAliveUI();
+            if (player.kills >= state.winTarget) endMatch(true);
+          }
+          break;
+        }
+      }
+    }
+  }
+}
+
 function updateCamera() {
   const target = player.pos.clone().add(new THREE.Vector3(0, 1.6, 0));
   const dist = 4;
@@ -593,47 +784,123 @@ function updateCamera() {
   camera.lookAt(target);
 }
 
-// ============ POST FX ============
+function updateClouds(t) {
+  for (let i = 0; i < CLOUD_COUNT; i++) {
+    const c = cloudData[i];
+    cloudS.set(c.sx, c.sy, c.sz);
+    cloudV.set(c.x + Math.sin(t * 0.02 + c.ph) * 5, c.y, c.z);
+    cloudM.compose(cloudV, cloudQ, cloudS);
+    clouds.setMatrixAt(i, cloudM);
+  }
+  clouds.instanceMatrix.needsUpdate = true;
+}
+
+// Post-processing
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.3, 0.4, 0.9));
 composer.addPass(new SMAAPass(innerWidth, innerHeight));
 composer.addPass(new OutputPass());
 
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-  composer.setSize(innerWidth, innerHeight);
+function resizeMatch() {
+  const w = innerWidth, h = innerHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+  composer.setSize(w, h);
+}
+window.addEventListener('resize', () => {
+  resizeLobby();
+  if (state.screen === 'match') resizeMatch();
 });
 
-// ============ GAME LOOP ============
-const clock = new THREE.Clock();
+// ============================================================
+// MATCH FLOW
+// ============================================================
+function startMatch() {
+  applyProfileToPlayer();
+  resetCharacters();
+  clearBullets();
+  updateHPUI(); updateKillsUI(); updateAliveUI();
+  playerNameHud.textContent = state.profile.name;
+  lookYaw = 0; lookPitch = 0.15;
+  moveX = moveY = 0;
+  fireCooldown = 0;
+  state.matchActive = true;
+  endOverlay.classList.remove('active');
+  resizeMatch();
+  showScreen('match');
+}
+
+function endMatch(won) {
+  state.matchActive = false;
+  const gain = won ? 50 : 10;
+  state.profile.xp += gain;
+  saveProfile();
+  endTitle.textContent = won ? 'VICTORY' : 'DEFEAT';
+  endTitle.className = 'endTitle ' + (won ? 'win' : 'lose');
+  endStat.textContent = `+${gain} XP  •  Total XP: ${state.profile.xp}  •  Level ${getLevel()}`;
+  endOverlay.classList.add('active');
+}
+
+document.getElementById('endBtn').addEventListener('click', () => {
+  endOverlay.classList.remove('active');
+  levelBadge.textContent = 'LVL ' + getLevel();
+  showScreen('lobby');
+  resizeLobby();
+});
+
+// ============================================================
+// MATCHING FLOW
+// ============================================================
+let matchTimer = null;
+function beginMatching() {
+  showScreen('matching');
+  const countEl = document.getElementById('matchCount');
+  let n = 1;
+  matchTimer = setInterval(() => {
+    n += 3 + Math.floor(Math.random() * 5);
+    if (n >= 46) n = 46;
+    countEl.textContent = n + '/46';
+    if (n >= 46) {
+      clearInterval(matchTimer);
+      setTimeout(startMatch, 600);
+    }
+  }, 350);
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  state.profile.name = nameInput.value.trim().slice(0, 14) || 'Player';
+  saveProfile();
+  beginMatching();
+});
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+const matchClock = new THREE.Clock();
 let elapsed = 0;
 
-function tick() {
-  const dt = Math.min(0.05, clock.getDelta());
+function tickMatch() {
+  const dt = Math.min(0.05, matchClock.getDelta());
   elapsed += dt;
 
-  if (player.alive) {
+  if (state.matchActive && player.alive) {
     let ix = moveX, iz = moveY;
     if (keys['KeyW']) iz -= 1;
     if (keys['KeyS']) iz += 1;
     if (keys['KeyA']) ix -= 1;
     if (keys['KeyD']) ix += 1;
-
     const len = Math.hypot(ix, iz);
     if (len > 0.01) {
       ix /= len; iz /= len;
-      const speedMul = player.state === 'prone' ? 0.25 : player.state === 'crouch' ? 0.5 : 1.0;
-      const speed = 5.5 * speedMul;
+      const mul = player.state === 'prone' ? 0.25 : player.state === 'crouch' ? 0.5 : 1.0;
+      const speed = 5.5 * mul;
       const fx = -Math.sin(lookYaw), fz = -Math.cos(lookYaw);
       const rx = Math.cos(lookYaw), rz = -Math.sin(lookYaw);
       const mvx = fx * -iz + rx * ix;
       const mvz = fz * -iz + rz * ix;
       player.pos.x += mvx * speed * dt;
       player.pos.z += mvz * speed * dt;
-
       const targetYaw = Math.atan2(mvx, mvz);
       let dy = targetYaw - player.yaw;
       while (dy > Math.PI) dy -= Math.PI * 2;
@@ -647,20 +914,18 @@ function tick() {
       player.yaw += dy * Math.min(1, dt * 5);
       player.walkPhase *= 0.85;
     }
-
     if (!player.onGround) {
       player.vy -= 20 * dt;
       player.pos.y += player.vy * dt;
       if (player.pos.y <= 0) { player.pos.y = 0; player.vy = 0; player.onGround = true; }
     }
+    updateBots(dt);
+    fireCooldown = Math.max(0, fireCooldown - dt);
+    if (fireHeld && fireCooldown <= 0) fire();
   }
 
-  updateBots(dt);
   updateCharacterInstances();
   updateBullets(dt);
-  fireCooldown = Math.max(0, fireCooldown - dt);
-  if (fireHeld && fireCooldown <= 0) fire();
-
   updateClouds(elapsed);
   updateCamera();
 
@@ -669,12 +934,28 @@ function tick() {
   sun.target.updateMatrixWorld();
 
   composer.render();
-  requestAnimationFrame(tick);
 }
 
-updateHPUI(); updateKillsUI(); updateAliveUI();
-updateCharacterInstances();
-tick();
+function renderLobby() {
+  const t = performance.now() * 0.001;
+  charGroup.rotation.y = t * 0.5;
+  previewRenderer.render(previewScene, previewCamera);
+}
+
+function mainLoop() {
+  if (state.screen === 'lobby') renderLobby();
+  else if (state.screen === 'match') tickMatch();
+  requestAnimationFrame(mainLoop);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+resizeLobby();
+resizeMatch();
+updateLobbyCharacter();
+showScreen('lobby');
+mainLoop();
 </script>
 </body>
 </html>
