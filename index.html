@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<title>Bottle Royale Mobile</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b0f14;touch-action:none;font-family:system-ui}
+  #c{display:block;width:100%;height:100%}
+  #joyBase{position:fixed;left:24px;bottom:24px;width:120px;height:120px;border-radius:50%;
+    background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);display:none}
+  #joyKnob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;
+    background:rgba(255,255,255,.35)}
+  #hint{position:fixed;top:12px;left:12px;color:#fff;font-size:12px;opacity:.7;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="joyBase"><div id="joyKnob"></div></div>
+<div id="hint">Left: move · Right: look</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+
+// ---------- Renderer (mobile tuned) ----------
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:false, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+// ---------- Scene ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9fc0dd);
+scene.fog = new THREE.Fog(0x9fc0dd, 40, 160);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, 400);
+
+// ---------- Lights ----------
+scene.add(new THREE.HemisphereLight(0xbcd7ff, 0x4a5b3a, 0.6));
+const sun = new THREE.DirectionalLight(0xffe9c4, 2.2);
+sun.position.set(30, 40, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left:-40, right:40, top:40, bottom:-40, far:120 });
+scene.add(sun, sun.target);
+
+// ---------- Environment (tiny procedural HDRI for reflections) ----------
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envScene = new THREE.Scene();
+envScene.background = new THREE.Color(0x88aacc);
+scene.environment = pmrem.fromScene(envScene, 0.04).texture;
+
+// ---------- Ground + Road ----------
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(300, 300),
+  new THREE.MeshStandardMaterial({ color:0x4f6b3a, roughness:0.95 })
+);
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
+scene.add(ground);
+
+const road = new THREE.Mesh(
+  new THREE.PlaneGeometry(10, 200),
+  new THREE.MeshStandardMaterial({ color:0x24262a, roughness:0.85 })
+);
+road.rotation.x = -Math.PI/2; road.position.set(0, 0.01, -20); road.receiveShadow = true;
+scene.add(road);
+
+// ---------- Water ----------
+const water = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 60),
+  new THREE.MeshStandardMaterial({ color:0x1b4a63, roughness:0.08, metalness:0.9, envMapIntensity:1.2 })
+);
+water.rotation.x = -Math.PI/2; water.position.set(45, 0.02, -30);
+scene.add(water);
+
+// ---------- House ----------
+function makeHouse(x, z, rot = 0){
+  const g = new THREE.Group();
+  const walls = new THREE.Mesh(
+    new THREE.BoxGeometry(8, 5, 7),
+    new THREE.MeshStandardMaterial({ color:0xd8d2c4, roughness:0.85 })
+  );
+  walls.position.y = 2.5; walls.castShadow = walls.receiveShadow = true;
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(6.8, 3.5, 4),
+    new THREE.MeshStandardMaterial({ color:0x7a3b2e, roughness:0.7 })
+  );
+  roof.position.y = 6.75; roof.rotation.y = Math.PI/4; roof.castShadow = true;
+  g.add(walls, roof);
+  g.position.set(x, 0, z); g.rotation.y = rot;
+  scene.add(g);
+}
+makeHouse(-18, -20, 0.3);
+makeHouse(18, -45, -0.4);
+
+// ---------- Trees (InstancedMesh = 1 draw call) ----------
+const COUNT = 120;
+const trunks = new THREE.InstancedMesh(
+  new THREE.CylinderGeometry(0.22, 0.3, 2.4, 6),
+  new THREE.MeshStandardMaterial({ color:0x5b3d2b, roughness:0.95 }), COUNT
+);
+const leaves = new THREE.InstancedMesh(
+  new THREE.ConeGeometry(1.6, 3.2, 7),
+  new THREE.MeshStandardMaterial({ color:0x2f5d2a, roughness:0.9 }), COUNT
+);
+trunks.castShadow = leaves.castShadow = true;
+
+const m = new THREE.Matrix4();
+for (let i = 0; i < COUNT; i++){
+  const a = Math.random() * Math.PI * 2;
+  const r = 15 + Math.random() * 110;
+  const x = Math.cos(a) * r, z = Math.sin(a) * r - 30;
+  const s = 0.8 + Math.random() * 0.8;
+  const q = new THREE.Quaternion(), v = new THREE.Vector3(s, s, s);
+
+  m.compose(new THREE.Vector3(x, 1.2 * s, z), q, v);
+  trunks.setMatrixAt(i, m);
+  m.compose(new THREE.Vector3(x, 3.0 * s, z), q, v);
+  leaves.setMatrixAt(i, m);
+}
+scene.add(trunks, leaves);
+
+// ---------- Player (FPS) ----------
+const player = new THREE.Group();
+player.position.set(0, 0, 6);
+scene.add(player);
+
+const body = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.35, 1.0, 4, 8),
+  new THREE.MeshStandardMaterial({ color:0x2b6cb0, roughness:0.7 })
+);
+body.position.y = 0.85; body.castShadow = true;
+player.add(body);
+
+camera.position.set(0, 1.7, 0);
+player.add(camera);
+
+// ---------- Touch Controls ----------
+let moveX = 0, moveY = 0, yaw = 0, pitch = 0;
+const joyBase = document.getElementById('joyBase');
+const joyKnob = document.getElementById('joyKnob');
+let joyId = null, joyStart = { x:0, y:0 };
+let lookId = null, lastLook = { x:0, y:0 };
+
+if ('ontouchstart' in window) joyBase.style.display = 'block';
+
+addEventListener('touchstart', (e) => {
+  for (const t of e.changedTouches){
+    if (t.clientX < innerWidth * 0.45 && joyId === null){
+      joyId = t.identifier;
+      joyStart = { x: t.clientX, y: t.clientY };
+      joyBase.style.left = (t.clientX - 60) + 'px';
+      joyBase.style.bottom = (innerHeight - t.clientY - 60) + 'px';
+    } else if (lookId === null){
+      lookId = t.identifier;
+      lastLook = { x: t.clientX, y: t.clientY };
+    }
+  }
+}, { passive:true });
+
+addEventListener('touchmove', (e) => {
+  for (const t of e.changedTouches){
+    if (t.identifier === joyId){
+      const dx = t.clientX - joyStart.x, dy = t.clientY - joyStart.y;
+      const len = Math.min(50, Math.hypot(dx, dy));
+      const ang = Math.atan2(dy, dx);
+      joyKnob.style.left = (35 + Math.cos(ang) * len) + 'px';
+      joyKnob.style.top  = (35 + Math.sin(ang) * len) + 'px';
+      moveX = Math.cos(ang) * (len / 50);
+      moveY = Math.sin(ang) * (len / 50);
+    } else if (t.identifier === lookId){
+      yaw   -= (t.clientX - lastLook.x) * 0.005;
+      pitch -= (t.clientY - lastLook.y) * 0.005;
+      pitch = Math.max(-1.2, Math.min(1.2, pitch));
+      lastLook = { x: t.clientX, y: t.clientY };
+    }
+  }
+}, { passive:true });
+
+addEventListener('touchend', (e) => {
+  for (const t of e.changedTouches){
+    if (t.identifier === joyId){
+      joyId = null; moveX = moveY = 0;
+      joyKnob.style.left = '35px'; joyKnob.style.top = '35px';
+      joyBase.style.left = '24px'; joyBase.style.bottom = '24px';
+    }
+    if (t.identifier === lookId) lookId = null;
+  }
+}, { passive:true });
+
+// Desktop fallback
+const keys = {};
+addEventListener('keydown', e => keys[e.code] = true);
+addEventListener('keyup',   e => keys[e.code] = false);
+let mDown = false, mx = 0, my = 0;
+addEventListener('mousedown', e => { mDown = true; mx = e.clientX; my = e.clientY; });
+addEventListener('mouseup', () => mDown = false);
+addEventListener('mousemove', e => {
+  if (!mDown) return;
+  yaw   -= (e.clientX - mx) * 0.003;
+  pitch -= (e.clientY - my) * 0.003;
+  pitch = Math.max(-1.2, Math.min(1.2, pitch));
+  mx = e.clientX; my = e.clientY;
+});
+
+// ---------- Post-Processing (mobile-safe) ----------
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.4, 0.9));
+composer.addPass(new SMAAPass(innerWidth, innerHeight));
+composer.addPass(new OutputPass());
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- Loop ----------
+const clock = new THREE.Clock();
+const SPEED = 5.5;
+
+function tick(){
+  const dt = Math.min(0.05, clock.getDelta());
+
+  let ix = moveX, iz = moveY;
+  if (keys['KeyW']) iz -= 1; if (keys['KeyS']) iz += 1;
+  if (keys['KeyA']) ix -= 1; if (keys['KeyD']) ix += 1;
+
+  const len = Math.hypot(ix, iz);
+  if (len > 0.01){
+    ix /= len; iz /= len;
+    const s = Math.min(1, len);
+    const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
+    const fx = -sinY, fz = -cosY;   // forward
+    const rx =  cosY, rz = -sinY;   // right
+    player.position.x += (fx * -iz + rx * ix) * SPEED * s * dt;
+    player.position.z += (fz * -iz + rz * ix) * SPEED * s * dt;
+  }
+
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+
+  // Sun follows player so shadows stay sharp
+  sun.position.copy(player.position).add(new THREE.Vector3(30, 40, 20));
+  sun.target.position.copy(player.position);
+  sun.target.updateMatrixWorld();
+
+  composer.render();
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
